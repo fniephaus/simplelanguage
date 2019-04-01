@@ -1,15 +1,29 @@
 #!/usr/bin/env bash
+set -e
 
 COMPONENT_DIR="component_temp_dir"
 LANGUAGE_PATH="$COMPONENT_DIR/jre/languages/sl"
+SIMPLE_LANGUAGE_JAR="../language/target/simplelanguage.jar"
 if [[ -f ../native/slnative ]]; then
     INCLUDE_SLNATIVE="TRUE"
 fi
 
-rm -rf COMPONENT_DIR
+if [[ -d $COMPONENT_DIR ]]; then
+	local user_input
+    read -p "'$COMPONENT_DIR' already exists. Do you want to remove it? (y/N): " user_input
+    if [[ "${user_input}" != "y" ]]; then
+        exit 0
+    fi
+    rm -rf "$COMPONENT_DIR"
+fi
+
+if [[ ! -f $SIMPLE_LANGUAGE_JAR ]]; then
+    echo "Could not find '$SIMPLE_LANGUAGE_JAR'. Did you run mvn package?"
+    exit 1
+fi
 
 mkdir -p "$LANGUAGE_PATH"
-cp ../language/target/simplelanguage.jar "$LANGUAGE_PATH"
+cp "$SIMPLE_LANGUAGE_JAR" "$LANGUAGE_PATH"
 
 mkdir -p "$LANGUAGE_PATH/launcher"
 cp ../launcher/target/sl-launcher.jar "$LANGUAGE_PATH/launcher/"
@@ -29,7 +43,7 @@ echo "Bundle-Version: 1.0.0-rc14" >> "$MANIFEST"
 echo 'Bundle-RequireCapability: org.graalvm; filter:="(&(graalvm_version=1.0.0-rc14)(os_arch=amd64))"' >> "$MANIFEST"
 echo "x-GraalVM-Polyglot-Part: True" >> "$MANIFEST"
 
-cd $COMPONENT_DIR
+pushd "$COMPONENT_DIR" > /dev/null
 jar cfm ../sl-component.jar META-INF/MANIFEST.MF .
 
 echo "bin/sl = ../jre/languages/sl/bin/sl" > META-INF/symlinks
@@ -41,5 +55,5 @@ jar uf ../sl-component.jar META-INF/symlinks
 echo "jre/languages/sl/bin/sl = rwxrwxr-x" > META-INF/permissions
 echo "jre/languages/sl/bin/slnative = rwxrwxr-x" >> META-INF/permissions
 jar uf ../sl-component.jar META-INF/permissions
-cd ..
-rm -rf $COMPONENT_DIR
+popd > /dev/null
+rm -rf "$COMPONENT_DIR"
